@@ -8,6 +8,7 @@ pipeline {
         DOCKER_IMAGE_BACKEND = "${DOCKER_REGISTRY}/registration-api"
         DOCKER_IMAGE_FRONTEND = "${DOCKER_REGISTRY}/registration-frontend"
         BUILD_TAG = "${BUILD_NUMBER}"
+        GIT_REPO = "https://github.com/BrooksCoder/RegistrationApp.git"
         PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         // Azure credentials - set these as Jenkins Credentials
         AZURE_CLIENT_ID = credentials('AZURE_CLIENT_ID')
@@ -17,13 +18,19 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clone Repository') {
             steps {
                 echo '════════════════════════════════════════'
-                echo '▶ STAGE: Checkout Code'
+                echo '▶ STAGE: Clone Repository'
                 echo '════════════════════════════════════════'
-                checkout scm
-                echo '✓ Code checked out successfully'
+                script {
+                    sh '''
+                        rm -rf repo
+                        git clone ${GIT_REPO} repo
+                        cd repo
+                        echo "✓ Repository cloned successfully"
+                    '''
+                }
             }
         }
 
@@ -50,6 +57,7 @@ pipeline {
                 echo '════════════════════════════════════════'
                 script {
                     sh '''
+                        cd repo
                         echo "Building backend image: ${DOCKER_IMAGE_BACKEND}:${BUILD_TAG}"
                         docker build -f backend/Dockerfile \
                             -t ${DOCKER_IMAGE_BACKEND}:${BUILD_TAG} \
@@ -69,6 +77,7 @@ pipeline {
                 echo '════════════════════════════════════════'
                 script {
                     sh '''
+                        cd repo
                         echo "Building frontend image: ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG}"
                         docker build -f frontend/Dockerfile \
                             -t ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG} \
