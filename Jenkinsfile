@@ -9,6 +9,11 @@ pipeline {
         DOCKER_IMAGE_FRONTEND = "${DOCKER_REGISTRY}/registration-frontend"
         BUILD_TAG = "${BUILD_NUMBER}"
         PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        // Azure credentials - set these as Jenkins Credentials
+        AZURE_CLIENT_ID = credentials('AZURE_CLIENT_ID')
+        AZURE_CLIENT_SECRET = credentials('AZURE_CLIENT_SECRET')
+        AZURE_TENANT_ID = credentials('AZURE_TENANT_ID')
+        AZURE_SUBSCRIPTION_ID = credentials('AZURE_SUBSCRIPTION_ID')
     }
 
     stages {
@@ -19,6 +24,22 @@ pipeline {
                 echo '════════════════════════════════════════'
                 checkout scm
                 echo '✓ Code checked out successfully'
+            }
+        }
+
+        stage('Azure Login') {
+            steps {
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Login to Azure'
+                echo '════════════════════════════════════════'
+                script {
+                    sh '''
+                        echo "Logging into Azure..."
+                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+                        az account set --subscription $AZURE_SUBSCRIPTION_ID
+                        echo "✓ Successfully logged into Azure"
+                    '''
+                }
             }
         }
 
