@@ -1,207 +1,183 @@
 trigger:
   - main
-  - develop
-
-pr:
-  - main
-  - develop
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  buildConfiguration: 'Release'
-  nodeVersion: '18.x'
-  dotnetVersion: '8.x'
-  acrName: 'registrationappacr'
+  registryServiceConnection: 'registrationappacr'
+  imageRepository: 'registration'
   containerRegistry: 'registrationappacr.azurecr.io'
-  dockerRegistryServiceConnection: 'RegistrationApp-ACR'
-  resourceGroupName: 'rg-registration-app'
-  containerInstanceBackend: 'registration-api-prod'
-  containerInstanceFrontend: 'registration-frontend-prod'
-  sqlServerName: 'regsql2807'
-  azureSubscription: 'RegistrationApp-Azure'
-  location: 'centralindia'
+  dockerfilePath: '$(Build.SourcesDirectory)'
+  tag: '$(Build.BuildId)'
+  MSYS_NO_PATHCONV: 1
 
 stages:
-  - stage: Build
-    displayName: 'Build & Test'
+  - stage: BuildBackend
+    displayName: 'Build Backend'
     jobs:
-      - job: BuildFrontend
-        displayName: 'Build Angular Frontend'
+      - job: BuildBackendJob
+        displayName: 'Build Backend Docker Image'
         steps:
-          - task: NodeTool@0
-            inputs:
-              versionSpec: $(nodeVersion)
-
-          - task: Npm@1
-            inputs:
-              command: 'ci'
-              workingDir: '$(Build.SourcesDirectory)/frontend'
-
-          - task: Npm@1
-            inputs:
-              command: 'custom'
-              customCommand: 'run build -- --configuration production'
-              workingDir: '$(Build.SourcesDirectory)/frontend'
-
-          - task: PublishBuildArtifacts@1
-            inputs:
-              pathToPublish: '$(Build.SourcesDirectory)/frontend/dist'
-              artifactName: 'frontend-dist'
-
-      - job: BuildBackend
-        displayName: 'Build .NET Core Backend'
-        steps:
-          - task: UseDotNet@2
-            inputs:
-              version: $(dotnetVersion)
-
-          - task: DotNetCoreCLI@2
-            inputs:
-              command: 'restore'
-              projects: '$(Build.SourcesDirectory)/backend/**/*.csproj'
-
-          - task: DotNetCoreCLI@2
+          - task: Docker@2
+            displayName: 'Build Backend Image'
             inputs:
               command: 'build'
-              projects: '$(Build.SourcesDirectory)/backend/**/*.csproj'
-              arguments: '--configuration $(buildConfiguration) --no-restore'
+              Dockerfile: '$(dockerfilePath)/backend/Dockerfile'
+              repository: '$(containerRegistry)/registration-api'
+              tags: |
+                $(tag)
+                latest
+              arguments: '--build-arg BUILD_ID=$(Build.BuildId)'
 
-          - task: DotNetCoreCLI@2
+          - task: Docker@2
+            displayName: 'Push Backend Image'
             inputs:
-              command: 'publish'
-              publishWebProjects: false
-              projects: '$(Build.SourcesDirectory)/backend/RegistrationApi.csproj'
-              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-              zipAfterPublish: true
+              command: 'push'
+              repository: '$(containerRegistry)/registration-api'
+              tags: |
+                $(tag)
+                latest
+              containerRegistry: '$(registryServiceConnection)'
 
-          - task: PublishBuildArtifacts@1
-            inputs:
-              pathToPublish: '$(Build.ArtifactStagingDirectory)'
-              artifactName: 'backend-dist'
-
-  - stage: BuildDocker
-    displayName: 'Build Docker Images'
-    dependsOn: Build
-    condition: succeeded()
+  - stage: BuildFrontend
+    displayName: 'Build Frontend'
+    dependsOn: BuildBackend
     jobs:
-      - job: BuildAndPushImages
-        displayName: 'Build & Push Docker Images'
+      - job: BuildFrontendJob
+        displayName: 'Build Frontend Docker Image'
         steps:
           - task: Docker@2
-            displayName: 'Build and push backend image'
+            displayName: 'Build Frontend Image'
             inputs:
-              command: 'buildAndPush'
-              repository: '$(containerRegistry)/registration-api'
-              dockerfile: '$(Build.SourcesDirectory)/backend/Dockerfile'
-              containerRegistry: '$(dockerRegistryServiceConnection)'
+              command: 'build'
+              Dockerfile: '$(dockerfilePath)/frontend/Dockerfile'
+              repository: '$(containerRegistry)/registration-frontend'
               tags: |
+                $(tag)
                 latest
-                $(Build.BuildId)
 
           - task: Docker@2
-            displayName: 'Build and push frontend image'
+            displayName: 'Push Frontend Image'
             inputs:
-              command: 'buildAndPush'
+              command: 'push'
               repository: '$(containerRegistry)/registration-frontend'
-              dockerfile: '$(Build.SourcesDirectory)/frontend/Dockerfile'
-              containerRegistry: '$(dockerRegistryServiceConnection)'
               tags: |
+                $(tag)
                 latest
-                $(Build.BuildId)
+              containerRegistry: '$(registryServiceConnection)'
 
-  - stage: DeployProd
-    displayName: 'Deploy to Production'
-    dependsOn: BuildDocker
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  - stage: DeployBackend
+    displayName: 'Deploy Backend to Azure'
+    dependsOn: BuildBackend
+    condition: succeeded()
     jobs:
-      - deployment: DeployContainers
-        displayName: 'Deploy to Container Instances'
-        environment: 'Production'
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - task: AzureCLI@2
-                  displayName: 'Deploy Backend Container'
-                  inputs:
-                    azureSubscription: '$(azureSubscription)'
-                    scriptType: 'pscore'
-                    scriptLocation: 'inlineScript'
-                    inlineScript: |
-                      $sqlServer = "$(sqlServerName).database.windows.net"
-                      $connString = "Server=tcp:$sqlServer,1433;Initial Catalog=RegistrationAppDb;Persist Security Info=False;User ID=sqladmin;Password=YourSecurePassword123!@#;Encrypt=True;Connection Timeout=30;"
-                      
-                      az container delete --resource-group $(resourceGroupName) --name $(containerInstanceBackend) --yes || true
-                      
-                      az container create `
-                        --resource-group $(resourceGroupName) `
-                        --name $(containerInstanceBackend) `
-                        --image $(containerRegistry)/registration-api:latest `
-                        --cpu 1 `
-                        --memory 1 `
-                        --registry-login-server $(containerRegistry) `
-                        --registry-username $(acrUsername) `
-                        --registry-password $(acrPassword) `
-                        --ports 80 `
-                        --dns-name-label registration-api-$(Build.BuildId) `
-                        --location $(location) `
-                        --environment-variables `
-                          ASPNETCORE_ENVIRONMENT=Production `
-                          "ConnectionStrings__DefaultConnection=$connString"
+      - job: DeployBackendJob
+        displayName: 'Deploy Backend Container'
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Deploy Backend Container'
+            inputs:
+              azureSubscription: 'Azure Resource Manager'
+              scriptType: 'pscore'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                $resourceGroup = "rg-registration-app"
+                $location = "centralindia"
+                $acrName = "registrationappacr"
+                $acrServer = "$acrName.azurecr.io"
+                $backendName = "registration-api-prod"
+                $sqlServer = "regsql2807"
+                $sqlDb = "RegistrationAppDb"
+                $sqlUser = "sqladmin"
+                $sqlPass = "YourSecurePassword123!@#"
+                $tag = "$(Build.BuildId)"
+                
+                $acrUser = az acr credential show --resource-group $resourceGroup --name $acrName --query username -o tsv
+                $acrPass = az acr credential show --resource-group $resourceGroup --name $acrName --query "passwords[0].value" -o tsv
+                
+                $sqlFqdn = "$sqlServer.database.windows.net"
+                $connStr = "Server=tcp:$sqlFqdn,1433;Initial Catalog=$sqlDb;Persist Security Info=False;User ID=$sqlUser;Password=$sqlPass;Encrypt=True;Connection Timeout=30;"
+                
+                Write-Host "Deleting old backend container..."
+                az container delete --resource-group $resourceGroup --name $backendName --yes 2>$null
+                Start-Sleep -Seconds 3
+                
+                Write-Host "Deploying backend container with tag $tag..."
+                az container create `
+                  --resource-group $resourceGroup `
+                  --name $backendName `
+                  --image "$acrServer/registration-api:$tag" `
+                  --cpu 1 `
+                  --memory 1 `
+                  --os-type Linux `
+                  --registry-login-server $acrServer `
+                  --registry-username $acrUser `
+                  --registry-password $acrPass `
+                  --ports 80 `
+                  --dns-name-label "registration-api-prod" `
+                  --location $location `
+                  --environment-variables ASPNETCORE_ENVIRONMENT=Production "ConnectionStrings__DefaultConnection=$connStr"
+                
+                Start-Sleep -Seconds 5
+                $backendUrl = az container show --resource-group $resourceGroup --name $backendName --query ipAddress.fqdn -o tsv
+                Write-Host "Backend deployed at: http://$backendUrl"
 
-                - task: AzureCLI@2
-                  displayName: 'Get Backend URL'
-                  inputs:
-                    azureSubscription: '$(azureSubscription)'
-                    scriptType: 'pscore'
-                    scriptLocation: 'inlineScript'
-                    inlineScript: |
-                      $backendUrl = az container show --resource-group $(resourceGroupName) --name $(containerInstanceBackend) --query ipAddress.fqdn -o tsv
-                      Write-Host "##vso[task.setvariable variable=BACKEND_URL]http://$backendUrl"
-                      Write-Host "Backend URL: http://$backendUrl"
-
-                - task: AzureCLI@2
-                  displayName: 'Deploy Frontend Container'
-                  inputs:
-                    azureSubscription: '$(azureSubscription)'
-                    scriptType: 'pscore'
-                    scriptLocation: 'inlineScript'
-                    inlineScript: |
-                      az container delete --resource-group $(resourceGroupName) --name $(containerInstanceFrontend) --yes || true
-                      
-                      az container create `
-                        --resource-group $(resourceGroupName) `
-                        --name $(containerInstanceFrontend) `
-                        --image $(containerRegistry)/registration-frontend:latest `
-                        --cpu 0.5 `
-                        --memory 0.5 `
-                        --registry-login-server $(containerRegistry) `
-                        --registry-username $(acrUsername) `
-                        --registry-password $(acrPassword) `
-                        --ports 80 `
-                        --dns-name-label registration-frontend-$(Build.BuildId) `
-                        --location $(location) `
-                        --environment-variables `
-                          "BACKEND_URL=$(BACKEND_URL)"
-
-                - task: AzureCLI@2
-                  displayName: 'Get Frontend URL'
-                  inputs:
-                    azureSubscription: '$(azureSubscription)'
-                    scriptType: 'pscore'
-                    scriptLocation: 'inlineScript'
-                    inlineScript: |
-                      $frontendUrl = az container show --resource-group $(resourceGroupName) --name $(containerInstanceFrontend) --query ipAddress.fqdn -o tsv
-                      Write-Host "##vso[task.setvariable variable=FRONTEND_URL]http://$frontendUrl"
-                      Write-Host "Frontend URL: http://$frontendUrl"
-                      Write-Host ""
-                      Write-Host "╔════════════════════════════════════════════╗"
-                      Write-Host "║     🚀 DEPLOYMENT COMPLETE! 🚀            ║"
-                      Write-Host "╚════════════════════════════════════════════╝"
-                      Write-Host ""
-                      Write-Host "Frontend:  http://$frontendUrl"
-                      Write-Host "Backend:   http://$(BACKEND_URL)"
-                      Write-Host "API:       http://$(BACKEND_URL)/api/items"
-                      Write-Host "Swagger:   http://$(BACKEND_URL)/swagger/index.html"
+  - stage: DeployFrontend
+    displayName: 'Deploy Frontend to Azure'
+    dependsOn: 
+      - BuildFrontend
+      - DeployBackend
+    condition: succeeded()
+    jobs:
+      - job: DeployFrontendJob
+        displayName: 'Deploy Frontend Container'
+        steps:
+          - task: AzureCLI@2
+            displayName: 'Deploy Frontend Container'
+            inputs:
+              azureSubscription: 'Azure Resource Manager'
+              scriptType: 'pscore'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                $resourceGroup = "rg-registration-app"
+                $location = "centralindia"
+                $acrName = "registrationappacr"
+                $acrServer = "$acrName.azurecr.io"
+                $frontendName = "registration-frontend-prod"
+                $tag = "$(Build.BuildId)"
+                
+                $acrUser = az acr credential show --resource-group $resourceGroup --name $acrName --query username -o tsv
+                $acrPass = az acr credential show --resource-group $resourceGroup --name $acrName --query "passwords[0].value" -o tsv
+                
+                $backendUrl = az container show --resource-group $resourceGroup --name "registration-api-prod" --query ipAddress.fqdn -o tsv
+                
+                Write-Host "Deleting old frontend container..."
+                az container delete --resource-group $resourceGroup --name $frontendName --yes 2>$null
+                Start-Sleep -Seconds 3
+                
+                Write-Host "Deploying frontend container with tag $tag..."
+                az container create `
+                  --resource-group $resourceGroup `
+                  --name $frontendName `
+                  --image "$acrServer/registration-frontend:$tag" `
+                  --cpu 0.5 `
+                  --memory 0.5 `
+                  --os-type Linux `
+                  --registry-login-server $acrServer `
+                  --registry-username $acrUser `
+                  --registry-password $acrPass `
+                  --ports 80 `
+                  --dns-name-label "registration-frontend-prod" `
+                  --location $location `
+                  --environment-variables "BACKEND_URL=http://$backendUrl"
+                
+                Start-Sleep -Seconds 5
+                $frontendUrl = az container show --resource-group $resourceGroup --name $frontendName --query ipAddress.fqdn -o tsv
+                
+                Write-Host ""
+                Write-Host "========== DEPLOYMENT COMPLETE ==========" -ForegroundColor Green
+                Write-Host "Frontend: http://$frontendUrl" -ForegroundColor Yellow
+                Write-Host "Backend:  http://$backendUrl" -ForegroundColor Yellow
+                Write-Host "API:      http://$backendUrl/api/items" -ForegroundColor Yellow
+                Write-Host "Swagger:  http://$backendUrl/swagger/index.html" -ForegroundColor Yellow
