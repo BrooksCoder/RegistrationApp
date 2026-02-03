@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'docker:latest'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
         DOCKER_REGISTRY = 'registrationappacr.azurecr.io'
@@ -13,6 +8,7 @@ pipeline {
         DOCKER_IMAGE_BACKEND = "${DOCKER_REGISTRY}/registration-api"
         DOCKER_IMAGE_FRONTEND = "${DOCKER_REGISTRY}/registration-frontend"
         BUILD_TAG = "${BUILD_NUMBER}"
+        PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     }
 
     stages {
