@@ -1,0 +1,73 @@
+trigger:
+  - main
+  - develop
+
+pr:
+  - main
+  - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  nodeVersion: '18.x'
+  dotnetVersion: '8.x'
+
+stages:
+  - stage: Build
+    displayName: 'Build'
+    jobs:
+      - job: BuildFrontend
+        displayName: 'Build Angular Frontend'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          - task: Npm@1
+            inputs:
+              command: 'ci'
+              workingDir: '$(Build.SourcesDirectory)/frontend'
+
+          - task: Npm@1
+            inputs:
+              command: 'custom'
+              customCommand: 'run build -- --configuration production'
+              workingDir: '$(Build.SourcesDirectory)/frontend'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: '$(Build.SourcesDirectory)/frontend/dist'
+              artifactName: 'frontend'
+
+      - job: BuildBackend
+        displayName: 'Build .NET Core Backend'
+        steps:
+          - task: UseDotNet@2
+            inputs:
+              version: $(dotnetVersion)
+
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'restore'
+              projects: '$(Build.SourcesDirectory)/backend/**/*.csproj'
+
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'build'
+              projects: '$(Build.SourcesDirectory)/backend/**/*.csproj'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'publish'
+              publishWebProjects: false
+              projects: '$(Build.SourcesDirectory)/backend/RegistrationApi.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+              zipAfterPublish: true
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'backend'

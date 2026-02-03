@@ -1,0 +1,54 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.env
+frontend/.env.local
+frontend/.vscode/settings.json
+
+# Backend
+backend/bin/
+backend/obj/
+backend/.vs/
+backend/.vscode/
+backend/appsettings.local.json
+backend/Migrations/
+backend/.user
+backend/*.user
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build
+dist/
+build/
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Database
+*.mdf
+*.ldf
+*.ndf
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Azure
+local.settings.json
