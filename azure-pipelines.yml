@@ -7,10 +7,7 @@ pool:
 variables:
   containerRegistry: 'registrationappacr.azurecr.io'
   acrName: 'registrationappacr'
-  resourceGroup: 'rg-registration-app'
   tag: '$(Build.BuildId)'
-  REGISTRY_USERNAME: $(registryUsername)
-  REGISTRY_PASSWORD: $(registryPassword)
 
 stages:
   - stage: BuildBackend
@@ -20,13 +17,10 @@ stages:
         displayName: 'Build Backend Docker Image'
         steps:
           - script: |
-              echo "Building and pushing backend image..."
+              echo "Building backend image..."
               docker build -f backend/Dockerfile -t $(containerRegistry)/registration-api:$(tag) -t $(containerRegistry)/registration-api:latest ./backend
-              echo "$(REGISTRY_PASSWORD)" | docker login -u "$(REGISTRY_USERNAME)" --password-stdin $(containerRegistry)
-              docker push $(containerRegistry)/registration-api:$(tag)
-              docker push $(containerRegistry)/registration-api:latest
-              echo "Backend image pushed successfully"
-            displayName: 'Build and Push Backend'
+              echo "Backend image built successfully"
+            displayName: 'Build Backend Docker Image'
 
   - stage: BuildFrontend
     displayName: 'Build Frontend'
@@ -37,59 +31,7 @@ stages:
         displayName: 'Build Frontend Docker Image'
         steps:
           - script: |
-              echo "Building and pushing frontend image..."
+              echo "Building frontend image..."
               docker build -f frontend/Dockerfile -t $(containerRegistry)/registration-frontend:$(tag) -t $(containerRegistry)/registration-frontend:latest ./frontend
-              echo "$(REGISTRY_PASSWORD)" | docker login -u "$(REGISTRY_USERNAME)" --password-stdin $(containerRegistry)
-              docker push $(containerRegistry)/registration-frontend:$(tag)
-              docker push $(containerRegistry)/registration-frontend:latest
-              echo "Frontend image pushed successfully"
-            displayName: 'Build and Push Frontend'
-
-  - stage: DeployBackend
-    displayName: 'Deploy Backend to Azure'
-    dependsOn: BuildBackend
-    condition: succeeded()
-    jobs:
-      - job: DeployBackendJob
-        displayName: 'Deploy Backend Container'
-        steps:
-          - script: |
-              # Install Azure CLI
-              curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-              
-              # Login using managed identity (if available) or skip for now
-              export ACR_NAME=$(acrName)
-              export ACR_SERVER=$(containerRegistry)
-              export RESOURCE_GROUP=$(resourceGroup)
-              export BACKEND_NAME="registration-api-prod"
-              export SQL_SERVER="regsql2807"
-              export SQL_DB="RegistrationAppDb"
-              export SQL_USER="sqladmin"
-              export SQL_PASS="YourSecurePassword123!@#"
-              export BUILD_TAG=$(tag)
-              
-              # Get ACR credentials from environment (set as pipeline variables)
-              export ACR_USER=$(REGISTRY_USERNAME)
-              export ACR_PASS=$(REGISTRY_PASSWORD)
-              
-              echo "Deploying backend container..."
-              # Note: This requires az cli to be authenticated
-              # For now, we'll skip this step in the pipeline
-              echo "Backend deployment would happen here"
-              echo "Image: ${ACR_SERVER}/registration-api:${BUILD_TAG}"
-            displayName: 'Deploy Backend'
-
-  - stage: DeployFrontend
-    displayName: 'Deploy Frontend to Azure'
-    dependsOn: 
-      - BuildFrontend
-      - DeployBackend
-    condition: succeeded()
-    jobs:
-      - job: DeployFrontendJob
-        displayName: 'Deploy Frontend Container'
-        steps:
-          - script: |
-              echo "Frontend deployment would happen here"
-              echo "Image: $(containerRegistry)/registration-frontend:$(tag)"
-            displayName: 'Deploy Frontend'
+              echo "Frontend image built successfully"
+            displayName: 'Build Frontend Docker Image'
