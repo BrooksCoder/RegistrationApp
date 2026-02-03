@@ -28,9 +28,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
 COPY --from=publish /app/publish .
-COPY wait-for-db.sh /app/wait-for-db.sh
-RUN chmod +x /app/wait-for-db.sh
 
 EXPOSE 80
 
-ENTRYPOINT ["/app/wait-for-db.sh", "sqlserver", "1433", "dotnet", "RegistrationApi.dll"]
+CMD ["dotnet", "RegistrationApi.dll"]

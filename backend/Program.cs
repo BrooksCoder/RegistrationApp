@@ -13,10 +13,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAngularApp", corsPolicyBuilder =>
     {
         corsPolicyBuilder
-            .WithOrigins("http://localhost:4200", "https://localhost:4200") // Update with your frontend URL
+            .AllowAnyOrigin()
             .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
+            .AllowAnyHeader();
     });
 });
 
@@ -30,16 +29,23 @@ builder.Services.AddDbContext<RegistrationApi.Data.ApplicationDbContext>(options
 builder.Services.AddLogging();
 builder.Services.AddEndpointsApiExplorer();
 
+// Configure Kestrel to listen on all interfaces
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(80);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Enable Swagger in all environments for now
+app.UseSwagger();
+app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
+// Only redirect to HTTPS in production with proper certificate support
+// For now, skip HTTPS redirect since we're using HTTP in containers
+// app.UseHttpsRedirection();
+
 app.UseCors("AllowAngularApp");
 app.UseAuthorization();
 app.MapControllers();
