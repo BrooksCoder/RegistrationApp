@@ -13,10 +13,19 @@ variables:
   buildConfiguration: 'Release'
   nodeVersion: '18.x'
   dotnetVersion: '8.x'
+  acrName: 'registrationappacr'
+  containerRegistry: 'registrationappacr.azurecr.io'
+  dockerRegistryServiceConnection: 'RegistrationApp-ACR'
+  resourceGroupName: 'rg-registration-app'
+  containerInstanceBackend: 'registration-api-prod'
+  containerInstanceFrontend: 'registration-frontend-prod'
+  sqlServerName: 'regsql2807'
+  azureSubscription: 'RegistrationApp-Azure'
+  location: 'centralindia'
 
 stages:
   - stage: Build
-    displayName: 'Build'
+    displayName: 'Build & Test'
     jobs:
       - job: BuildFrontend
         displayName: 'Build Angular Frontend'
@@ -39,7 +48,7 @@ stages:
           - task: PublishBuildArtifacts@1
             inputs:
               pathToPublish: '$(Build.SourcesDirectory)/frontend/dist'
-              artifactName: 'frontend'
+              artifactName: 'frontend-dist'
 
       - job: BuildBackend
         displayName: 'Build .NET Core Backend'
@@ -70,4 +79,129 @@ stages:
           - task: PublishBuildArtifacts@1
             inputs:
               pathToPublish: '$(Build.ArtifactStagingDirectory)'
-              artifactName: 'backend'
+              artifactName: 'backend-dist'
+
+  - stage: BuildDocker
+    displayName: 'Build Docker Images'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: BuildAndPushImages
+        displayName: 'Build & Push Docker Images'
+        steps:
+          - task: Docker@2
+            displayName: 'Build and push backend image'
+            inputs:
+              command: 'buildAndPush'
+              repository: '$(containerRegistry)/registration-api'
+              dockerfile: '$(Build.SourcesDirectory)/backend/Dockerfile'
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              tags: |
+                latest
+                $(Build.BuildId)
+
+          - task: Docker@2
+            displayName: 'Build and push frontend image'
+            inputs:
+              command: 'buildAndPush'
+              repository: '$(containerRegistry)/registration-frontend'
+              dockerfile: '$(Build.SourcesDirectory)/frontend/Dockerfile'
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              tags: |
+                latest
+                $(Build.BuildId)
+
+  - stage: DeployProd
+    displayName: 'Deploy to Production'
+    dependsOn: BuildDocker
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployContainers
+        displayName: 'Deploy to Container Instances'
+        environment: 'Production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: 'Deploy Backend Container'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    scriptType: 'pscore'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      $sqlServer = "$(sqlServerName).database.windows.net"
+                      $connString = "Server=tcp:$sqlServer,1433;Initial Catalog=RegistrationAppDb;Persist Security Info=False;User ID=sqladmin;Password=YourSecurePassword123!@#;Encrypt=True;Connection Timeout=30;"
+                      
+                      az container delete --resource-group $(resourceGroupName) --name $(containerInstanceBackend) --yes || true
+                      
+                      az container create `
+                        --resource-group $(resourceGroupName) `
+                        --name $(containerInstanceBackend) `
+                        --image $(containerRegistry)/registration-api:latest `
+                        --cpu 1 `
+                        --memory 1 `
+                        --registry-login-server $(containerRegistry) `
+                        --registry-username $(acrUsername) `
+                        --registry-password $(acrPassword) `
+                        --ports 80 `
+                        --dns-name-label registration-api-$(Build.BuildId) `
+                        --location $(location) `
+                        --environment-variables `
+                          ASPNETCORE_ENVIRONMENT=Production `
+                          "ConnectionStrings__DefaultConnection=$connString"
+
+                - task: AzureCLI@2
+                  displayName: 'Get Backend URL'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    scriptType: 'pscore'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      $backendUrl = az container show --resource-group $(resourceGroupName) --name $(containerInstanceBackend) --query ipAddress.fqdn -o tsv
+                      Write-Host "##vso[task.setvariable variable=BACKEND_URL]http://$backendUrl"
+                      Write-Host "Backend URL: http://$backendUrl"
+
+                - task: AzureCLI@2
+                  displayName: 'Deploy Frontend Container'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    scriptType: 'pscore'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      az container delete --resource-group $(resourceGroupName) --name $(containerInstanceFrontend) --yes || true
+                      
+                      az container create `
+                        --resource-group $(resourceGroupName) `
+                        --name $(containerInstanceFrontend) `
+                        --image $(containerRegistry)/registration-frontend:latest `
+                        --cpu 0.5 `
+                        --memory 0.5 `
+                        --registry-login-server $(containerRegistry) `
+                        --registry-username $(acrUsername) `
+                        --registry-password $(acrPassword) `
+                        --ports 80 `
+                        --dns-name-label registration-frontend-$(Build.BuildId) `
+                        --location $(location) `
+                        --environment-variables `
+                          "BACKEND_URL=$(BACKEND_URL)"
+
+                - task: AzureCLI@2
+                  displayName: 'Get Frontend URL'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    scriptType: 'pscore'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      $frontendUrl = az container show --resource-group $(resourceGroupName) --name $(containerInstanceFrontend) --query ipAddress.fqdn -o tsv
+                      Write-Host "##vso[task.setvariable variable=FRONTEND_URL]http://$frontendUrl"
+                      Write-Host "Frontend URL: http://$frontendUrl"
+                      Write-Host ""
+                      Write-Host "╔════════════════════════════════════════════╗"
+                      Write-Host "║     🚀 DEPLOYMENT COMPLETE! 🚀            ║"
+                      Write-Host "╚════════════════════════════════════════════╝"
+                      Write-Host ""
+                      Write-Host "Frontend:  http://$frontendUrl"
+                      Write-Host "Backend:   http://$(BACKEND_URL)"
+                      Write-Host "API:       http://$(BACKEND_URL)/api/items"
+                      Write-Host "Swagger:   http://$(BACKEND_URL)/swagger/index.html"
