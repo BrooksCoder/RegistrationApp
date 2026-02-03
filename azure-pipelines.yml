@@ -5,12 +5,10 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  registryServiceConnection: 'registrationappacr'
-  imageRepository: 'registration'
   containerRegistry: 'registrationappacr.azurecr.io'
-  dockerfilePath: '$(Build.SourcesDirectory)'
+  acrName: 'registrationappacr'
+  resourceGroup: 'rg-registration-app'
   tag: '$(Build.BuildId)'
-  MSYS_NO_PATHCONV: 1
 
 stages:
   - stage: BuildBackend
@@ -19,53 +17,39 @@ stages:
       - job: BuildBackendJob
         displayName: 'Build Backend Docker Image'
         steps:
-          - task: Docker@2
-            displayName: 'Build Backend Image'
+          - task: AzureCLI@2
+            displayName: 'Build and Push Backend Image'
             inputs:
-              command: 'build'
-              Dockerfile: '$(dockerfilePath)/backend/Dockerfile'
-              repository: '$(containerRegistry)/registration-api'
-              tags: |
-                $(tag)
-                latest
-              arguments: '--build-arg BUILD_ID=$(Build.BuildId)'
-
-          - task: Docker@2
-            displayName: 'Push Backend Image'
-            inputs:
-              command: 'push'
-              repository: '$(containerRegistry)/registration-api'
-              tags: |
-                $(tag)
-                latest
-              containerRegistry: '$(registryServiceConnection)'
+              azureSubscription: 'Azure Resource Manager'
+              scriptType: 'pscore'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az acr login --name $(acrName)
+                docker build -f backend/Dockerfile -t $(containerRegistry)/registration-api:$(tag) -t $(containerRegistry)/registration-api:latest ./backend
+                docker push $(containerRegistry)/registration-api:$(tag)
+                docker push $(containerRegistry)/registration-api:latest
+                Write-Host "Backend image pushed successfully"
 
   - stage: BuildFrontend
     displayName: 'Build Frontend'
     dependsOn: BuildBackend
+    condition: succeeded()
     jobs:
       - job: BuildFrontendJob
         displayName: 'Build Frontend Docker Image'
         steps:
-          - task: Docker@2
-            displayName: 'Build Frontend Image'
+          - task: AzureCLI@2
+            displayName: 'Build and Push Frontend Image'
             inputs:
-              command: 'build'
-              Dockerfile: '$(dockerfilePath)/frontend/Dockerfile'
-              repository: '$(containerRegistry)/registration-frontend'
-              tags: |
-                $(tag)
-                latest
-
-          - task: Docker@2
-            displayName: 'Push Frontend Image'
-            inputs:
-              command: 'push'
-              repository: '$(containerRegistry)/registration-frontend'
-              tags: |
-                $(tag)
-                latest
-              containerRegistry: '$(registryServiceConnection)'
+              azureSubscription: 'Azure Resource Manager'
+              scriptType: 'pscore'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az acr login --name $(acrName)
+                docker build -f frontend/Dockerfile -t $(containerRegistry)/registration-frontend:$(tag) -t $(containerRegistry)/registration-frontend:latest ./frontend
+                docker push $(containerRegistry)/registration-frontend:$(tag)
+                docker push $(containerRegistry)/registration-frontend:latest
+                Write-Host "Frontend image pushed successfully"
 
   - stage: DeployBackend
     displayName: 'Deploy Backend to Azure'
@@ -82,16 +66,16 @@ stages:
               scriptType: 'pscore'
               scriptLocation: 'inlineScript'
               inlineScript: |
-                $resourceGroup = "rg-registration-app"
+                $resourceGroup = "$(resourceGroup)"
                 $location = "centralindia"
-                $acrName = "registrationappacr"
-                $acrServer = "$acrName.azurecr.io"
+                $acrName = "$(acrName)"
+                $acrServer = "$(containerRegistry)"
                 $backendName = "registration-api-prod"
                 $sqlServer = "regsql2807"
                 $sqlDb = "RegistrationAppDb"
                 $sqlUser = "sqladmin"
                 $sqlPass = "YourSecurePassword123!@#"
-                $tag = "$(Build.BuildId)"
+                $tag = "$(tag)"
                 
                 $acrUser = az acr credential show --resource-group $resourceGroup --name $acrName --query username -o tsv
                 $acrPass = az acr credential show --resource-group $resourceGroup --name $acrName --query "passwords[0].value" -o tsv
@@ -121,6 +105,7 @@ stages:
                 
                 Start-Sleep -Seconds 5
                 $backendUrl = az container show --resource-group $resourceGroup --name $backendName --query ipAddress.fqdn -o tsv
+                Write-Host "##vso[task.setvariable variable=BACKEND_URL]$backendUrl"
                 Write-Host "Backend deployed at: http://$backendUrl"
 
   - stage: DeployFrontend
@@ -140,12 +125,12 @@ stages:
               scriptType: 'pscore'
               scriptLocation: 'inlineScript'
               inlineScript: |
-                $resourceGroup = "rg-registration-app"
+                $resourceGroup = "$(resourceGroup)"
                 $location = "centralindia"
-                $acrName = "registrationappacr"
-                $acrServer = "$acrName.azurecr.io"
+                $acrName = "$(acrName)"
+                $acrServer = "$(containerRegistry)"
                 $frontendName = "registration-frontend-prod"
-                $tag = "$(Build.BuildId)"
+                $tag = "$(tag)"
                 
                 $acrUser = az acr credential show --resource-group $resourceGroup --name $acrName --query username -o tsv
                 $acrPass = az acr credential show --resource-group $resourceGroup --name $acrName --query "passwords[0].value" -o tsv
@@ -176,8 +161,8 @@ stages:
                 $frontendUrl = az container show --resource-group $resourceGroup --name $frontendName --query ipAddress.fqdn -o tsv
                 
                 Write-Host ""
-                Write-Host "========== DEPLOYMENT COMPLETE ==========" -ForegroundColor Green
-                Write-Host "Frontend: http://$frontendUrl" -ForegroundColor Yellow
-                Write-Host "Backend:  http://$backendUrl" -ForegroundColor Yellow
-                Write-Host "API:      http://$backendUrl/api/items" -ForegroundColor Yellow
-                Write-Host "Swagger:  http://$backendUrl/swagger/index.html" -ForegroundColor Yellow
+                Write-Host "========== DEPLOYMENT COMPLETE ==========" 
+                Write-Host "Frontend: http://$frontendUrl"
+                Write-Host "Backend:  http://$backendUrl"
+                Write-Host "API:      http://$backendUrl/api/items"
+                Write-Host "Swagger:  http://$backendUrl/swagger/index.html"
