@@ -14,21 +14,28 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out code...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Checkout Code'
+                echo '════════════════════════════════════════'
                 checkout scm
+                echo '✓ Code checked out successfully'
             }
         }
 
         stage('Build Backend') {
             steps {
-                echo 'Building backend Docker image...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Build Backend Docker Image'
+                echo '════════════════════════════════════════'
                 script {
                     sh '''
+                        echo "Building backend image: ${DOCKER_IMAGE_BACKEND}:${BUILD_TAG}"
                         docker build -f backend/Dockerfile \
                             -t ${DOCKER_IMAGE_BACKEND}:${BUILD_TAG} \
                             -t ${DOCKER_IMAGE_BACKEND}:latest \
                             ./backend
-                        echo "Backend image built: ${DOCKER_IMAGE_BACKEND}:${BUILD_TAG}"
+                        echo "✓ Backend image built successfully"
+                        docker images | grep registration-api
                     '''
                 }
             }
@@ -36,14 +43,18 @@ pipeline {
 
         stage('Build Frontend') {
             steps {
-                echo 'Building frontend Docker image...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Build Frontend Docker Image'
+                echo '════════════════════════════════════════'
                 script {
                     sh '''
+                        echo "Building frontend image: ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG}"
                         docker build -f frontend/Dockerfile \
                             -t ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG} \
                             -t ${DOCKER_IMAGE_FRONTEND}:latest \
                             ./frontend
-                        echo "Frontend image built: ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG}"
+                        echo "✓ Frontend image built successfully"
+                        docker images | grep registration-frontend
                     '''
                 }
             }
@@ -51,10 +62,14 @@ pipeline {
 
         stage('Login to ACR') {
             steps {
-                echo 'Logging into Azure Container Registry...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Login to Azure Container Registry'
+                echo '════════════════════════════════════════'
                 script {
                     sh '''
+                        echo "Logging in to ACR: ${ACR_NAME}"
                         az acr login --name ${ACR_NAME}
+                        echo "✓ Successfully logged into ACR"
                     '''
                 }
             }
@@ -62,12 +77,15 @@ pipeline {
 
         stage('Push Backend Image') {
             steps {
-                echo 'Pushing backend image to ACR...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Push Backend Image to ACR'
+                echo '════════════════════════════════════════'
                 script {
                     sh '''
+                        echo "Pushing backend image: ${DOCKER_IMAGE_BACKEND}:${BUILD_TAG}"
                         docker push ${DOCKER_IMAGE_BACKEND}:${BUILD_TAG}
                         docker push ${DOCKER_IMAGE_BACKEND}:latest
-                        echo "Backend image pushed successfully"
+                        echo "✓ Backend image pushed successfully"
                     '''
                 }
             }
@@ -75,12 +93,15 @@ pipeline {
 
         stage('Push Frontend Image') {
             steps {
-                echo 'Pushing frontend image to ACR...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Push Frontend Image to ACR'
+                echo '════════════════════════════════════════'
                 script {
                     sh '''
+                        echo "Pushing frontend image: ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG}"
                         docker push ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG}
                         docker push ${DOCKER_IMAGE_FRONTEND}:latest
-                        echo "Frontend image pushed successfully"
+                        echo "✓ Frontend image pushed successfully"
                     '''
                 }
             }
@@ -88,7 +109,9 @@ pipeline {
 
         stage('Deploy Backend') {
             steps {
-                echo 'Deploying backend container...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Deploy Backend Container'
+                echo '════════════════════════════════════════'
                 script {
                     sh '''
                         # Get ACR credentials
@@ -124,7 +147,9 @@ pipeline {
 
         stage('Deploy Frontend') {
             steps {
-                echo 'Deploying frontend container...'
+                echo '════════════════════════════════════════'
+                echo '▶ STAGE: Deploy Frontend Container'
+                echo '════════════════════════════════════════'
                 script {
                     sh '''
                         # Get ACR credentials
