@@ -1,75 +1,388 @@
-<div class="container">
-  <div class="header">
-    <h1>Add Your Items Here</h1>
-    <p>Manage your items efficiently</p>
+<div class="app-container">
+  <!-- Navigation Tabs -->
+  <div class="navbar">
+    <div class="nav-brand">
+      <h1>📦 Registration App</h1>
+      <p>Azure-Integrated Item Management System</p>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab" [class.active]="activeTab === 'items'" (click)="activeTab = 'items'">
+        📋 Items
+      </button>
+      <button class="nav-tab" [class.active]="activeTab === 'audit'" (click)="activeTab = 'audit'">
+        📜 Audit Log
+      </button>
+      <button class="nav-tab" [class.active]="activeTab === 'notifications'" (click)="activeTab = 'notifications'">
+        🔔 Notifications
+      </button>
+      <button class="nav-tab" [class.active]="activeTab === 'approvals'" (click)="activeTab = 'approvals'">
+        ✅ Approvals
+      </button>
+      <button class="nav-tab" [class.active]="activeTab === 'analytics'" (click)="activeTab = 'analytics'">
+        📊 Analytics
+      </button>
+    </div>
   </div>
 
-  <div class="alerts">
+  <!-- Alerts -->
+  <div class="alerts-container">
     <div *ngIf="error" class="alert alert-error">
-      {{ error }}
+      <span class="alert-icon">❌</span>
+      <div class="alert-content">
+        <strong>Error</strong>
+        <p>{{ error }}</p>
+      </div>
+      <button class="alert-close" (click)="error = null">×</button>
     </div>
     <div *ngIf="successMessage" class="alert alert-success">
-      {{ successMessage }}
+      <span class="alert-icon">✅</span>
+      <div class="alert-content">
+        <strong>Success</strong>
+        <p>{{ successMessage }}</p>
+      </div>
+      <button class="alert-close" (click)="successMessage = null">×</button>
     </div>
   </div>
 
-  <div class="form-section">
-    <h2>Add New Item</h2>
-    <form [formGroup]="itemForm" (ngSubmit)="addItem()">
-      <div class="form-group">
-        <label for="name">Item Name *</label>
-        <input
-          type="text"
-          id="name"
-          formControlName="name"
-          placeholder="Enter item name"
-          class="form-control"
-          [class.error]="itemForm.get('name')?.invalid && itemForm.get('name')?.touched"
-        />
-        <small *ngIf="itemForm.get('name')?.invalid && itemForm.get('name')?.touched" class="error-text">
-          Name is required and must be at least 3 characters.
-        </small>
+  <!-- ITEMS TAB -->
+  <div class="tab-content" *ngIf="activeTab === 'items'">
+    <div class="container">
+      <div class="form-section">
+        <h2>📝 Add New Item</h2>
+        <form [formGroup]="itemForm" (ngSubmit)="addItem()">
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="name">Item Name *</label>
+              <input
+                type="text"
+                id="name"
+                formControlName="name"
+                placeholder="Enter item name"
+                class="form-control"
+                [class.error]="itemForm.get('name')?.invalid && itemForm.get('name')?.touched"
+              />
+              <small *ngIf="itemForm.get('name')?.invalid && itemForm.get('name')?.touched" class="error-text">
+                Name is required and must be at least 3 characters.
+              </small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="description">Description *</label>
+            <textarea
+              id="description"
+              formControlName="description"
+              placeholder="Enter item description"
+              class="form-control"
+              rows="4"
+              [class.error]="itemForm.get('description')?.invalid && itemForm.get('description')?.touched"
+            ></textarea>
+            <small *ngIf="itemForm.get('description')?.invalid && itemForm.get('description')?.touched" class="error-text">
+              Description is required and must be at least 5 characters.
+            </small>
+          </div>
+
+          <!-- File Upload Section -->
+          <div class="form-group">
+            <label for="itemImage">Item Image (Optional)</label>
+            <div class="file-upload-zone" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onFileDrop($event)" [class.drag-over]="isDragging">
+              <input
+                type="file"
+                id="itemImage"
+                #fileInput
+                (change)="onFileSelected($event)"
+                accept="image/*"
+                class="file-input"
+              />
+              <div class="upload-content" (click)="fileInput.click()">
+                <span class="upload-icon">📸</span>
+                <p>Drop image here or click to upload</p>
+                <small>Supported: JPG, PNG, GIF (Max 5MB)</small>
+              </div>
+            </div>
+            <div *ngIf="selectedFile" class="selected-file">
+              ✅ Selected: {{ selectedFile.name }} ({{ (selectedFile.size / 1024).toFixed(2) }} KB)
+            </div>
+            <div *ngIf="imagePreviewUrl" class="image-preview">
+              <img [src]="imagePreviewUrl" alt="Preview" />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" [disabled]="loading || itemForm.invalid">
+            <span *ngIf="!loading">➕ Add Item</span>
+            <span *ngIf="loading">⏳ Adding...</span>
+          </button>
+        </form>
       </div>
 
-      <div class="form-group">
-        <label for="description">Description *</label>
-        <textarea
-          id="description"
-          formControlName="description"
-          placeholder="Enter item description"
-          class="form-control"
-          rows="4"
-          [class.error]="itemForm.get('description')?.invalid && itemForm.get('description')?.touched"
-        ></textarea>
-        <small *ngIf="itemForm.get('description')?.invalid && itemForm.get('description')?.touched" class="error-text">
-          Description is required and must be at least 5 characters.
-        </small>
-      </div>
-
-      <button type="submit" class="btn btn-primary" [disabled]="loading || itemForm.invalid">
-        {{ loading ? 'Adding...' : 'Add Item' }}
-      </button>
-    </form>
-  </div>
-
-  <div class="items-section">
-    <h2>Items List</h2>
-    <div *ngIf="loading && items.length === 0" class="loading">
-      Loading items...
-    </div>
-    
-    <div *ngIf="!loading && items.length === 0" class="empty-state">
-      <p>No items yet. Add your first item above!</p>
-    </div>
-
-    <div class="items-grid">
-      <div *ngFor="let item of items" class="item-card">
-        <div class="item-header">
-          <h3>{{ item.name }}</h3>
-          <button class="btn btn-danger btn-sm" (click)="deleteItem(item.id)">Delete</button>
+      <div class="items-section">
+        <h2>📦 Items List</h2>
+        
+        <div *ngIf="loading && items.length === 0" class="loading-spinner">
+          <div class="spinner"></div>
+          <p>Loading items...</p>
         </div>
-        <p class="item-description">{{ item.description }}</p>
-        <small class="item-date">Created: {{ item.createdAt | date: 'short' }}</small>
+        
+        <div *ngIf="!loading && items.length === 0" class="empty-state">
+          <span class="empty-icon">📭</span>
+          <p>No items yet. Add your first item above!</p>
+        </div>
+
+        <div class="items-grid">
+          <div *ngFor="let item of items" class="item-card">
+            <div *ngIf="item.imageUrl" class="item-image">
+              <img [src]="item.imageUrl" alt="{{ item.name }}" />
+            </div>
+            <div *ngIf="!item.imageUrl" class="item-image-placeholder">
+              📦
+            </div>
+            <div class="item-content">
+              <div class="item-header">
+                <h3>{{ item.name }}</h3>
+                <span class="item-id">#{{ item.id }}</span>
+              </div>
+              <p class="item-description">{{ item.description }}</p>
+              <div class="item-meta">
+                <small>Created: {{ item.createdAt | date: 'short' }}</small>
+              </div>
+              <div class="item-status">
+                <span class="status-badge" [class]="'status-' + item.status">
+                  {{ item.status || 'Pending' }}
+                </span>
+              </div>
+            </div>
+            <div class="item-actions">
+              <button class="btn btn-sm btn-warning" (click)="downloadImage(item.id)" *ngIf="item.imageUrl" title="Download Image">
+                ⬇️ Image
+              </button>
+              <button class="btn btn-sm btn-info" (click)="viewAuditLog(item.id)" title="View Audit Log">
+                📜 History
+              </button>
+              <button class="btn btn-sm btn-success" (click)="approveItem(item.id)" *ngIf="item.status !== 'Approved'" title="Approve Item">
+                ✅ Approve
+              </button>
+              <button class="btn btn-sm btn-danger" (click)="deleteItem(item.id)" title="Delete Item">
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIT LOG TAB -->
+  <div class="tab-content" *ngIf="activeTab === 'audit'">
+    <div class="container">
+      <div class="audit-section">
+        <h2>📜 Audit Log</h2>
+        <p class="section-description">Track all changes and actions in the system</p>
+
+        <div *ngIf="loadingAudit" class="loading-spinner">
+          <div class="spinner"></div>
+          <p>Loading audit logs...</p>
+        </div>
+
+        <div *ngIf="!loadingAudit && auditLogs.length === 0" class="empty-state">
+          <span class="empty-icon">📭</span>
+          <p>No audit logs available</p>
+        </div>
+
+        <div class="audit-timeline" *ngIf="!loadingAudit && auditLogs.length > 0">
+          <div *ngFor="let log of auditLogs" class="audit-entry">
+            <div class="audit-icon" [class]="'icon-' + log.action">
+              {{ getAuditIcon(log.action) }}
+            </div>
+            <div class="audit-content">
+              <div class="audit-header">
+                <h4>{{ log.action }}</h4>
+                <span class="audit-time">{{ log.timestamp | date: 'short' }}</span>
+              </div>
+              <p class="audit-detail">{{ log.details }}</p>
+              <small class="audit-user">By: {{ log.changedBy }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFICATIONS TAB -->
+  <div class="tab-content" *ngIf="activeTab === 'notifications'">
+    <div class="container">
+      <div class="notifications-section">
+        <h2>🔔 Notifications</h2>
+        <p class="section-description">Manage email notifications and Service Bus messages</p>
+
+        <div class="notification-stats">
+          <div class="stat-card">
+            <span class="stat-icon">📬</span>
+            <div class="stat-info">
+              <h4>Queued Messages</h4>
+              <p class="stat-value">{{ queuedNotifications }}</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">✅</span>
+            <div class="stat-info">
+              <h4>Sent Today</h4>
+              <p class="stat-value">{{ sentNotifications }}</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">❌</span>
+            <div class="stat-info">
+              <h4>Failed</h4>
+              <p class="stat-value">{{ failedNotifications }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="notifications-list">
+          <h3>Recent Notifications</h3>
+          <div *ngIf="notifications.length === 0" class="empty-state">
+            <span class="empty-icon">📭</span>
+            <p>No notifications</p>
+          </div>
+          <div *ngFor="let notif of notifications" class="notification-item" [class]="'notif-' + notif.status">
+            <div class="notif-header">
+              <h4>{{ notif.subject }}</h4>
+              <span class="notif-status">{{ notif.status }}</span>
+            </div>
+            <p class="notif-recipient">To: {{ notif.recipientEmail }}</p>
+            <small class="notif-time">{{ notif.timestamp | date: 'short' }}</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROVALS TAB -->
+  <div class="tab-content" *ngIf="activeTab === 'approvals'">
+    <div class="container">
+      <div class="approvals-section">
+        <h2>✅ Item Approvals</h2>
+        <p class="section-description">Review and approve pending items</p>
+
+        <div class="approval-stats">
+          <div class="stat-card">
+            <span class="stat-icon">⏳</span>
+            <div class="stat-info">
+              <h4>Pending</h4>
+              <p class="stat-value">{{ pendingApprovals }}</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">✅</span>
+            <div class="stat-info">
+              <h4>Approved</h4>
+              <p class="stat-value">{{ approvedCount }}</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">❌</span>
+            <div class="stat-info">
+              <h4>Rejected</h4>
+              <p class="stat-value">{{ rejectedCount }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="approvals-workflow">
+          <h3>Pending Approvals</h3>
+          <div *ngIf="pendingItems.length === 0" class="empty-state">
+            <span class="empty-icon">✨</span>
+            <p>All items approved!</p>
+          </div>
+          <div *ngFor="let item of pendingItems" class="approval-card">
+            <div class="approval-content">
+              <h4>{{ item.name }}</h4>
+              <p>{{ item.description }}</p>
+              <small>Created: {{ item.createdAt | date: 'short' }}</small>
+            </div>
+            <div class="approval-actions">
+              <button class="btn btn-sm btn-success" (click)="approveItem(item.id)">
+                ✅ Approve
+              </button>
+              <button class="btn btn-sm btn-danger" (click)="rejectItem(item.id)">
+                ❌ Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS TAB -->
+  <div class="tab-content" *ngIf="activeTab === 'analytics'">
+    <div class="container">
+      <div class="analytics-section">
+        <h2>📊 Analytics & Metrics</h2>
+        <p class="section-description">View application performance and Azure service metrics</p>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <h3>📦 Total Items</h3>
+            <p class="metric-value">{{ totalItems }}</p>
+            <small>Currently in system</small>
+          </div>
+          <div class="metric-card">
+            <h3>💾 Storage Used</h3>
+            <p class="metric-value">{{ (storageUsed / 1024 / 1024).toFixed(2) }} MB</p>
+            <small>Images and files</small>
+          </div>
+          <div class="metric-card">
+            <h3>📬 Queue Depth</h3>
+            <p class="metric-value">{{ queueDepth }}</p>
+            <small>Service Bus messages</small>
+          </div>
+          <div class="metric-card">
+            <h3>📝 Audit Entries</h3>
+            <p class="metric-value">{{ auditCount }}</p>
+            <small>Cosmos DB logs</small>
+          </div>
+          <div class="metric-card">
+            <h3>⚡ API Response</h3>
+            <p class="metric-value">{{ apiResponseTime }}ms</p>
+            <small>Average latency</small>
+          </div>
+          <div class="metric-card">
+            <h3>✅ Success Rate</h3>
+            <p class="metric-value">{{ successRate }}%</p>
+            <small>Request success</small>
+          </div>
+        </div>
+
+        <div class="azure-services">
+          <h3>🔷 Azure Services Status</h3>
+          <div class="service-status">
+            <div class="service-item">
+              <span class="service-name">Azure Storage</span>
+              <span class="status-indicator status-active">● Active</span>
+            </div>
+            <div class="service-item">
+              <span class="service-name">Azure Service Bus</span>
+              <span class="status-indicator status-active">● Active</span>
+            </div>
+            <div class="service-item">
+              <span class="service-name">Azure Cosmos DB</span>
+              <span class="status-indicator status-active">● Active</span>
+            </div>
+            <div class="service-item">
+              <span class="service-name">Application Insights</span>
+              <span class="status-indicator status-active">● Active</span>
+            </div>
+            <div class="service-item">
+              <span class="service-name">Azure Functions</span>
+              <span class="status-indicator status-active">● Active</span>
+            </div>
+            <div class="service-item">
+              <span class="service-name">Key Vault</span>
+              <span class="status-indicator status-active">● Active</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

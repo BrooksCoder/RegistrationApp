@@ -1,10 +1,32 @@
+using Azure.Identity;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.ApplicationInsights;
 using RegistrationApi.Data;
+using RegistrationApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ==================== AZURE KEY VAULT CONFIGURATION ====================
+// Load configuration from Key Vault in production
+if (!builder.Environment.IsDevelopment())
+{
+    var keyVaultUrl = builder.Configuration["AzureKeyVault:VaultUri"];
+    if (!string.IsNullOrEmpty(keyVaultUrl))
+    {
+        var credential = new DefaultAzureCredential();
+        builder.Configuration.AddAzureKeyVault(
+            new Uri(keyVaultUrl),
+            credential);
+    }
+}
+
+// ==================== AZURE APPLICATION INSIGHTS ====================
+// Add Application Insights for monitoring
+builder.Services.AddApplicationInsightsTelemetry();
+
+// ==================== SERVICES ====================
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddSwaggerGen();
@@ -19,6 +41,15 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Register Key Vault Service
+builder.Services.AddSingleton<KeyVaultService>();
+
+// Register Azure Services
+builder.Services.AddSingleton<ApplicationInsightsService>();
+builder.Services.AddScoped<AzureStorageService>();
+builder.Services.AddScoped<AzureServiceBusService>();
+builder.Services.AddScoped<AzureCosmosDbService>();
+
 // Add Entity Framework Core
 builder.Services.AddDbContext<RegistrationApi.Data.ApplicationDbContext>(options =>
 {
@@ -29,10 +60,14 @@ builder.Services.AddDbContext<RegistrationApi.Data.ApplicationDbContext>(options
 builder.Services.AddLogging();
 builder.Services.AddEndpointsApiExplorer();
 
-// Configure Kestrel to listen on all interfaces
+// Configure Kestrel to listen on the configured ports
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenAnyIP(80);
+    serverOptions.ListenLocalhost(58082, listenOptions =>
+    {
+        listenOptions.UseHttps();
+    });
+    serverOptions.ListenLocalhost(58083);
 });
 
 var app = builder.Build();

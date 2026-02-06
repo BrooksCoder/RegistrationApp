@@ -1,0 +1,15 @@
+{
+  "/api": {
+    "target": "http://localhost:58083",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api": "/api"
+    }
+  },
+  "/swagger": {
+    "target": "http://localhost:58083",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
