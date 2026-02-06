@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  # .NET Core Backend API (Production)
+  registration-backend-prod:
+    image: registrationappacr.azurecr.io/registration-api-prod:latest
+    container_name: registrationapp-backend-prod
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: "Server=tcp:regsql2807.database.windows.net,1433;Database=RegistrationAppDb;User Id=sqladmin;Password=<YOUR_PASSWORD>;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+      AzureServiceBus__ConnectionString: "<YOUR_SERVICE_BUS_CONNECTION_STRING>"
+      AzureStorage__ConnectionString: "<YOUR_STORAGE_CONNECTION_STRING>"
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+  # Angular Frontend (Production)
+  registration-frontend-prod:
+    image: registrationappacr.azurecr.io/registration-frontend-prod:latest
+    container_name: registrationapp-frontend-prod
+    environment:
+      - BACKEND_URL=http://registration-backend-prod.centralindia.azurecontainer.io
+    ports:
+      - "80:80"
+    depends_on:
+      - registration-backend-prod
+    restart: unless-stopped
