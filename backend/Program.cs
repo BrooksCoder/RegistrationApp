@@ -60,14 +60,25 @@ builder.Services.AddDbContext<RegistrationApi.Data.ApplicationDbContext>(options
 builder.Services.AddLogging();
 builder.Services.AddEndpointsApiExplorer();
 
-// Configure Kestrel to listen on the configured ports
+// Configure Kestrel to listen on all interfaces
+// In container environments, listen on 0.0.0.0:80
+// In development, use default ports
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenLocalhost(58082, listenOptions =>
+    if (builder.Environment.IsProduction())
     {
-        listenOptions.UseHttps();
-    });
-    serverOptions.ListenLocalhost(58083);
+        // Production: Listen on all interfaces on port 80
+        serverOptions.ListenAnyIP(80);
+    }
+    else
+    {
+        // Development: Listen on localhost ports
+        serverOptions.ListenLocalhost(58082, listenOptions =>
+        {
+            listenOptions.UseHttps();
+        });
+        serverOptions.ListenLocalhost(58083);
+    }
 });
 
 var app = builder.Build();

@@ -18,7 +18,24 @@ Write-Host ""
 $backendPath = "c:\Users\Admin\source\repos\RegistrationApp\backend"
 $connectionString = "Server=tcp:regsql2807.database.windows.net,1433;Initial Catalog=RegistrationAppDb;Persist Security Info=False;User ID=sqladmin;Password=YourSecurePassword123!@#;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
 
-Write-Host "Step 1: Checking dotnet-ef installation..." -ForegroundColor Yellow
+Write-Host "Step 1: Adding your local IP to SQL firewall..." -ForegroundColor Yellow
+$myIP = Invoke-WebRequest -Uri "https://api.ipify.org?format=json" -UseBasicParsing -ErrorAction Stop | ConvertFrom-Json | Select-Object -ExpandProperty ip
+Write-Host "✅ Your public IP: $myIP" -ForegroundColor Green
+
+Write-Host "   Creating firewall rule..." -ForegroundColor Cyan
+az sql server firewall-rule create `
+  --resource-group rg-registration-app `
+  --server regsql2807 `
+  --name "AllowLocalMachine" `
+  --start-ip-address $myIP `
+  --end-ip-address $myIP 2>$null
+
+Write-Host "✅ Firewall rule created" -ForegroundColor Green
+Write-Host "   Waiting 10 seconds for rule to take effect..." -ForegroundColor Cyan
+Start-Sleep -Seconds 10
+
+Write-Host ""
+Write-Host "Step 2: Checking dotnet-ef installation..." -ForegroundColor Yellow
 $efVersion = dotnet ef --version 2>$null
 if ($efVersion) {
     Write-Host "✅ dotnet-ef is installed: $efVersion" -ForegroundColor Green
@@ -34,12 +51,12 @@ if ($efVersion) {
 }
 
 Write-Host ""
-Write-Host "Step 2: Navigating to backend directory..." -ForegroundColor Yellow
+Write-Host "Step 3: Navigating to backend directory..." -ForegroundColor Yellow
 cd $backendPath
 Write-Host "✅ In directory: $(Get-Location)" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "Step 3: Running EF Core database migrations..." -ForegroundColor Yellow
+Write-Host "Step 4: Running EF Core database migrations..." -ForegroundColor Yellow
 Write-Host "Connection: regsql2807.database.windows.net" -ForegroundColor Cyan
 Write-Host "Database: RegistrationAppDb" -ForegroundColor Cyan
 Write-Host ""
@@ -58,7 +75,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 Write-Host ""
-Write-Host "Step 4: Restarting backend container..." -ForegroundColor Yellow
+Write-Host "Step 5: Restarting backend container..." -ForegroundColor Yellow
 az container restart --resource-group rg-registration-app --name registration-api-2807
 
 Write-Host "✅ Restart command sent" -ForegroundColor Green
@@ -66,7 +83,7 @@ Write-Host "Waiting 40 seconds for container to start..." -ForegroundColor Cyan
 Start-Sleep -Seconds 40
 
 Write-Host ""
-Write-Host "Step 5: Testing backend API..." -ForegroundColor Yellow
+Write-Host "Step 6: Testing backend API..." -ForegroundColor Yellow
 try {
     $response = Invoke-WebRequest `
       -Uri "http://registration-api-2807.centralindia.azurecontainer.io/api/items" `
