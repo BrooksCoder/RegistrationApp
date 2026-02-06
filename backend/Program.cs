@@ -53,7 +53,16 @@ builder.Services.AddScoped<AzureCosmosDbService>();
 // Add Entity Framework Core
 builder.Services.AddDbContext<RegistrationApi.Data.ApplicationDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    // Priority: Environment variable > appsettings.json
+    var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+        ?? builder.Configuration.GetConnectionString("DefaultConnection");
+    
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        throw new InvalidOperationException("Connection string 'DefaultConnection' not found in environment variables or configuration.");
+    }
+    
+    Console.WriteLine("Using connection string from: " + (Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") != null ? "Environment Variable" : "appsettings.json"));
     options.UseSqlServer(connectionString);
 });
 

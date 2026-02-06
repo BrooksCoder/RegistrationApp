@@ -26,13 +26,28 @@ namespace RegistrationApi.Services
 
             var keyVaultUrl = _configuration["AzureKeyVault:VaultUri"];
             
-            // Use Managed Identity in Azure, or DefaultAzureCredential locally
-            var credential = new DefaultAzureCredential();
-            _secretClient = new SecretClient(new Uri(keyVaultUrl), credential);
+            try
+            {
+                // Use Managed Identity in Azure, or DefaultAzureCredential locally
+                var credential = new DefaultAzureCredential();
+                _secretClient = new SecretClient(new Uri(keyVaultUrl), credential);
+                _logger.LogInformation("✓ Key Vault service initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"⚠ Failed to initialize Key Vault: {ex.Message}. Key Vault operations will be disabled.");
+                _secretClient = null;
+            }
         }
 
         public async Task<string> GetSecretAsync(string secretName)
         {
+            if (_secretClient == null)
+            {
+                _logger.LogWarning($"Key Vault service not available, returning empty string for secret: {secretName}");
+                return string.Empty;
+            }
+
             try
             {
                 _logger.LogInformation($"Retrieving secret: {secretName} from Key Vault");
