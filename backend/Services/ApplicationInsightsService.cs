@@ -15,6 +15,39 @@ namespace RegistrationApi.Services
         void TrackMetric(string metricName, double value);
     }
 
+    /// <summary>
+    /// No-op implementation used when Application Insights is not configured
+    /// </summary>
+    public class NoOpApplicationInsightsService : IApplicationInsightsService
+    {
+        private readonly ILogger<NoOpApplicationInsightsService> _logger;
+
+        public NoOpApplicationInsightsService(ILogger<NoOpApplicationInsightsService> logger)
+        {
+            _logger = logger;
+        }
+
+        public void TrackEvent(string eventName, Dictionary<string, string>? properties = null, Dictionary<string, double>? metrics = null)
+        {
+            // No-op: Application Insights not configured
+        }
+
+        public void TrackException(Exception ex, Dictionary<string, string>? properties = null)
+        {
+            // No-op: Application Insights not configured
+        }
+
+        public void TrackTrace(string message, SeverityLevel severityLevel = SeverityLevel.Information)
+        {
+            // No-op: Application Insights not configured
+        }
+
+        public void TrackMetric(string metricName, double value)
+        {
+            // No-op: Application Insights not configured
+        }
+    }
+
     public class ApplicationInsightsService : IApplicationInsightsService
     {
         private readonly TelemetryClient _telemetryClient;

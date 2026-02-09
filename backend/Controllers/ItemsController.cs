@@ -15,15 +15,15 @@ namespace RegistrationApi.Controllers
         private readonly AzureStorageService _storageService;
         private readonly AzureServiceBusService _serviceBusService;
         private readonly AzureCosmosDbService _cosmosService;
-        private readonly ApplicationInsightsService _appInsightsService;
+        private readonly IApplicationInsightsService _appInsightsService;
 
         public ItemsController(
             ApplicationDbContext context, 
             ILogger<ItemsController> logger,
-            AzureStorageService storageService = null,
-            AzureServiceBusService serviceBusService = null,
-            AzureCosmosDbService cosmosService = null,
-            ApplicationInsightsService appInsightsService = null)
+            AzureStorageService storageService,
+            AzureServiceBusService serviceBusService,
+            AzureCosmosDbService cosmosService,
+            IApplicationInsightsService appInsightsService)
         {
             _context = context;
             _logger = logger;

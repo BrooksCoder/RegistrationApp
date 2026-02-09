@@ -9,22 +9,43 @@ using RegistrationApi.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ==================== AZURE KEY VAULT CONFIGURATION ====================
-// Load configuration from Key Vault in production
+// Load configuration from Key Vault in production (if properly configured)
 if (!builder.Environment.IsDevelopment())
 {
     var keyVaultUrl = builder.Configuration["AzureKeyVault:VaultUri"];
-    if (!string.IsNullOrEmpty(keyVaultUrl))
+    if (!string.IsNullOrEmpty(keyVaultUrl) && !keyVaultUrl.StartsWith("<"))
     {
-        var credential = new DefaultAzureCredential();
-        builder.Configuration.AddAzureKeyVault(
-            new Uri(keyVaultUrl),
-            credential);
+        try
+        {
+            var credential = new DefaultAzureCredential();
+            builder.Configuration.AddAzureKeyVault(
+                new Uri(keyVaultUrl),
+                credential);
+            Console.WriteLine("✓ Azure Key Vault configured successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠ Failed to connect to Key Vault: {ex.Message}. Continuing without Key Vault.");
+        }
+    }
+    else
+    {
+        Console.WriteLine("⚠ Key Vault URL not configured (placeholder or empty), skipping");
     }
 }
 
 // ==================== AZURE APPLICATION INSIGHTS ====================
-// Add Application Insights for monitoring
-builder.Services.AddApplicationInsightsTelemetry();
+// Add Application Insights for monitoring (if properly configured)
+var appInsightsConfig = builder.Configuration["ApplicationInsights:InstrumentationKey"];
+if (!string.IsNullOrEmpty(appInsightsConfig) && !appInsightsConfig.StartsWith("<"))
+{
+    builder.Services.AddApplicationInsightsTelemetry();
+    Console.WriteLine("✓ Application Insights configured");
+}
+else
+{
+    Console.WriteLine("⚠ Application Insights not configured (placeholder or empty), skipping");
+}
 
 // ==================== SERVICES ====================
 // Add services to the container
@@ -45,7 +66,18 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<KeyVaultService>();
 
 // Register Azure Services
-builder.Services.AddSingleton<ApplicationInsightsService>();
+if (!string.IsNullOrEmpty(appInsightsConfig) && !appInsightsConfig.StartsWith("<"))
+{
+    builder.Services.AddApplicationInsightsTelemetry();
+    builder.Services.AddSingleton<IApplicationInsightsService, ApplicationInsightsService>();
+    Console.WriteLine("✓ ApplicationInsightsService registered");
+}
+else
+{
+    // Register a no-op implementation when App Insights is not configured
+    builder.Services.AddSingleton<IApplicationInsightsService, NoOpApplicationInsightsService>();
+    Console.WriteLine("⚠ NoOpApplicationInsightsService registered (App Insights not configured)");
+}
 builder.Services.AddScoped<AzureStorageService>();
 builder.Services.AddScoped<AzureServiceBusService>();
 builder.Services.AddScoped<AzureCosmosDbService>();

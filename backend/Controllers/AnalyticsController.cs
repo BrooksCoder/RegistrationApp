@@ -11,7 +11,7 @@ namespace RegistrationApi.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AzureStorageService _storageService;
-        private readonly ApplicationInsightsService _appInsightsService;
+        private readonly IApplicationInsightsService _appInsightsService;
         private readonly AzureCosmosDbService _cosmosService;
         private readonly AzureServiceBusService _serviceBusService;
         private readonly ILogger<AnalyticsController> _logger;
@@ -19,10 +19,10 @@ namespace RegistrationApi.Controllers
         public AnalyticsController(
             ApplicationDbContext context,
             AzureStorageService storageService,
-            ApplicationInsightsService appInsightsService,
             AzureCosmosDbService cosmosService,
             AzureServiceBusService serviceBusService,
-            ILogger<AnalyticsController> logger)
+            ILogger<AnalyticsController> logger,
+            IApplicationInsightsService appInsightsService)
         {
             _context = context;
             _storageService = storageService;

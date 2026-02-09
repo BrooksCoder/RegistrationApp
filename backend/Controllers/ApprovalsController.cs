@@ -11,14 +11,14 @@ namespace RegistrationApi.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AzureCosmosDbService _cosmosService;
-        private readonly ApplicationInsightsService _appInsightsService;
+        private readonly IApplicationInsightsService _appInsightsService;
         private readonly ILogger<ApprovalsController> _logger;
 
         public ApprovalsController(
             ApplicationDbContext context,
             AzureCosmosDbService cosmosService,
-            ApplicationInsightsService appInsightsService,
-            ILogger<ApprovalsController> logger)
+            ILogger<ApprovalsController> logger,
+            IApplicationInsightsService appInsightsService)
         {
             _context = context;
             _cosmosService = cosmosService;
