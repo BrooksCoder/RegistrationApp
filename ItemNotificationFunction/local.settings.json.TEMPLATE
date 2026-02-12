@@ -1,0 +1,10 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "@Microsoft.KeyVault(SecretUri=https://kv-registrationapp.vault.azure.net/secrets/StorageAccountConnectionString/)",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+        "AzureWebJobsServiceBusConnectionString": "@Microsoft.KeyVault(SecretUri=https://kv-registrationapp.vault.azure.net/secrets/ServiceBusConnectionString/)",
+        "SendGridApiKey": "@Microsoft.KeyVault(SecretUri=https://kv-registrationapp.vault.azure.net/secrets/SendGridApiKey/)",
+        "AzureKeyVault:VaultUri": "https://kv-registrationapp.vault.azure.net/"
+    }
+}

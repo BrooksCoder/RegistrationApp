@@ -12,25 +12,33 @@ var builder = WebApplication.CreateBuilder(args);
 // Load configuration from Key Vault in production (if properly configured)
 if (!builder.Environment.IsDevelopment())
 {
+    var clientId = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID");
+    var clientSecret = Environment.GetEnvironmentVariable("AZURE_CLIENT_SECRET");
+    var tenantId = Environment.GetEnvironmentVariable("AZURE_TENANT_ID");
     var keyVaultUrl = builder.Configuration["AzureKeyVault:VaultUri"];
-    if (!string.IsNullOrEmpty(keyVaultUrl) && !keyVaultUrl.StartsWith("<"))
+
+    if (!string.IsNullOrEmpty(clientId) && !string.IsNullOrEmpty(clientSecret))
     {
         try
         {
-            var credential = new DefaultAzureCredential();
+            // Use Service Principal credentials instead of DefaultAzureCredential
+            var credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
             builder.Configuration.AddAzureKeyVault(
                 new Uri(keyVaultUrl),
                 credential);
-            Console.WriteLine("✓ Azure Key Vault configured successfully");
+            Console.WriteLine("✓ Key Vault configured with Service Principal");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"⚠ Failed to connect to Key Vault: {ex.Message}. Continuing without Key Vault.");
+            Console.WriteLine($"✗ Failed to connect to Key Vault: {ex.Message}");
+            throw;
         }
     }
     else
     {
-        Console.WriteLine("⚠ Key Vault URL not configured (placeholder or empty), skipping");
+        throw new InvalidOperationException(
+            "Service Principal credentials not found. " +
+            "Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID environment variables.");
     }
 }
 

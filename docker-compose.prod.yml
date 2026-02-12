@@ -1,28 +1,37 @@
 version: "3.9"
 
 services:
-  # .NET Core Backend API (Production)
   registration-api-prod:
     image: registrationappacr.azurecr.io/registration-api-prod:latest
     container_name: registrationapp-backend-prod
     environment:
+      # ASP.NET Configuration
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:80
-      # Azure SQL Database connection
-      ConnectionStrings__DefaultConnection: "${AZURE_SQL_CONNECTION_STRING}"
-      # Azure Service Bus
-      ConnectionStrings__AzureServiceBus: "${AZURE_SERVICEBUS_CONNECTION_STRING}"
-      # Azure Storage
-      ConnectionStrings__AzureStorageAccount: "${AZURE_STORAGE_CONNECTION_STRING}"
-      # Azure Cosmos DB
-      ConnectionStrings__AzureCosmosDb: "${AZURE_COSMOSDB_CONNECTION_STRING}"
+      
+      # Service Principal for Key Vault
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      
+      # Database Connection (from Key Vault)
+      ConnectionStrings__DefaultConnection: ${AZURE_SQL_CONNECTION_STRING}
+      
+      # Key Vault Configuration
+      AzureKeyVault__VaultUri: https://kv-registrationapp.vault.azure.net/
+      
       # Application Insights
-      APPLICATIONINSIGHTS_CONNECTION_STRING: "${APPLICATIONINSIGHTS_CONNECTION_STRING}"
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
+      
+      # Logging
+      Logging__LogLevel__Default: Information
+      Logging__LogLevel__Microsoft: Warning
+      
     ports:
       - "80:80"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/items"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
