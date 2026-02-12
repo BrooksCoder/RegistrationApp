@@ -112,11 +112,8 @@ Write-Host ""
 Write-Host "Frontend URL:  http://$frontendUrl" -ForegroundColor Cyan
 Write-Host "Backend URL:   http://$backendUrl" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "📋 Next Steps:" -ForegroundColor Yellow
+Write-Host "Next Steps:" -ForegroundColor Yellow
 Write-Host "1. Wait 30-60 seconds for the container to fully start" -ForegroundColor White
 Write-Host "2. Open http://$frontendUrl in your browser" -ForegroundColor White
-Write-Host "3. Check DevTools > Network tab to verify API calls work" -ForegroundColor White
-Write-Host ""
-Write-Host "🔍 Verify Backend Connectivity:" -ForegroundColor Yellow
-Write-Host "curl http://$backendUrl/api/items" -ForegroundColor White
+Write-Host "3. Check DevTools Network tab to verify API calls work" -ForegroundColor White
 Write-Host ""
