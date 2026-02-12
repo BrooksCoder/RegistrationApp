@@ -1,20 +1,57 @@
 #!/bin/sh
 set -e
 
-# Get backend URL from either BACKEND_URL or BACKEND_API_URL environment variables
-BACKEND_URL=${BACKEND_URL:-${BACKEND_API_URL:-"http://localhost:5000"}}
+# Get backend URL from environment variables
+# Try BACKEND_URL first, then BACKEND_API_URL, default to localhost
+BACKEND_URL="${BACKEND_URL:-${BACKEND_API_URL:-http://localhost:5000}}"
 
-echo "🔧 Configuring nginx with BACKEND_URL: $BACKEND_URL"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔧 NGINX CONFIGURATION"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Backend URL: $BACKEND_URL"
+echo ""
 
-# Use sed to replace environment variables in nginx config
-# Escape the BACKEND_URL for use in sed replacement (escape special chars)
-ESCAPED_BACKEND_URL=$(printf '%s\n' "$BACKEND_URL" | sed -e 's/[\/&]/\\&/g')
+# Check if template file exists
+if [ ! -f /etc/nginx/conf.d/default.conf.template ]; then
+    echo "❌ ERROR: Template file not found at /etc/nginx/conf.d/default.conf.template"
+    echo "Available files in /etc/nginx/conf.d/:"
+    ls -la /etc/nginx/conf.d/
+    exit 1
+fi
 
-# Replace the placeholder in nginx config
-sed "s|\${BACKEND_URL}|$ESCAPED_BACKEND_URL|g" /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+# Escape special characters in the URL for sed
+ESCAPED_URL=$(printf '%s\n' "$BACKEND_URL" | sed -e 's/[\/&]/\\&/g')
+
+echo "Substituting backend URL in nginx config..."
+
+# Replace the placeholder - handle both ${BACKEND_URL} and BACKEND_URL_PLACEHOLDER
+sed -e "s|BACKEND_URL_PLACEHOLDER|$ESCAPED_URL|g" \
+    -e "s|\${BACKEND_URL}|$ESCAPED_URL|g" \
+    /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+
+echo "✅ Nginx configuration generated"
+echo ""
+
+# Show the proxy_pass line for debugging
+echo "Configured proxy_pass:"
+grep "proxy_pass" /etc/nginx/conf.d/default.conf || echo "⚠️  No proxy_pass found"
+echo ""
 
 # Verify nginx config syntax
-nginx -t || (echo "Nginx config test failed" && cat /etc/nginx/conf.d/default.conf && exit 1)
+echo "Testing nginx configuration..."
+if nginx -t; then
+    echo "✅ Nginx configuration is valid"
+else
+    echo "❌ Nginx configuration test failed!"
+    echo "Generated config:"
+    cat /etc/nginx/conf.d/default.conf
+    exit 1
+fi
 
-# Start nginx
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🚀 Starting NGINX..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Start nginx in foreground mode
 exec nginx -g "daemon off;"
