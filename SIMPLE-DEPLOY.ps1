@@ -11,8 +11,7 @@
     .\SIMPLE-DEPLOY.ps1
 #>
 
-$ErrorActionPreference = "Stop"
-$WarningPreference = "SilentlyContinue"
+
 
 # Configuration
 $ResourceGroup = "rg-registration-app"

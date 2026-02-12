@@ -28,7 +28,8 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 
 # Copy startup script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh && \
+    apk add --no-cache bash sed
 
 EXPOSE 80
 
