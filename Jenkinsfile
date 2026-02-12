@@ -206,7 +206,9 @@ pipeline {
                             --ports 80 \
                             --dns-name-label "registration-frontend-prod" \
                             --location centralindia \
-                            --environment-variables "BACKEND_URL=http://$BACKEND_URL"
+                            --environment-variables \
+                                "BACKEND_URL=http://$BACKEND_URL" \
+                                "BACKEND_API_URL=http://$BACKEND_URL"
                         
                         sleep 5
                         FRONTEND_URL=$(az container show --resource-group ${RESOURCE_GROUP} --name registration-frontend-prod --query ipAddress.fqdn -o tsv)
