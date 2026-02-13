@@ -2,56 +2,56 @@
 set -e
 
 # Get backend URL from environment variables
-# Try BACKEND_URL first, then BACKEND_API_URL, default to localhost
-BACKEND_URL="${BACKEND_URL:-${BACKEND_API_URL:-http://localhost:5000}}"
+BACKEND_URL="${BACKEND_URL:-http://localhost:5000}"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔧 NGINX CONFIGURATION"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔧 CONFIGURING NGINX"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Backend URL: $BACKEND_URL"
 echo ""
 
-# Check if template file exists
+# Check if template exists
 if [ ! -f /etc/nginx/conf.d/default.conf.template ]; then
-    echo "❌ ERROR: Template file not found at /etc/nginx/conf.d/default.conf.template"
-    echo "Available files in /etc/nginx/conf.d/:"
+    echo "ERROR: Template not found!"
     ls -la /etc/nginx/conf.d/
     exit 1
 fi
 
-# Escape special characters in the URL for sed
-ESCAPED_URL=$(printf '%s\n' "$BACKEND_URL" | sed -e 's/[\/&]/\\&/g')
+# Use printf and sed to escape the URL properly
+ESCAPED_URL=$(printf '%s\n' "$BACKEND_URL" | sed -e 's|[/\\&]|\\&|g')
 
-echo "Substituting backend URL in nginx config..."
+echo "Generating nginx config..."
 
-# Replace the placeholder - handle both ${BACKEND_URL} and BACKEND_URL_PLACEHOLDER
-sed -e "s|BACKEND_URL_PLACEHOLDER|$ESCAPED_URL|g" \
-    -e "s|\${BACKEND_URL}|$ESCAPED_URL|g" \
-    /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+# Replace the placeholder with the actual backend URL
+cat /etc/nginx/conf.d/default.conf.template | sed "s|BACKEND_URL_PLACEHOLDER|$ESCAPED_URL|g" > /etc/nginx/conf.d/default.conf
 
-echo "✅ Nginx configuration generated"
+# Verify the config was created
+if [ ! -f /etc/nginx/conf.d/default.conf ]; then
+    echo "ERROR: Failed to create nginx config!"
+    exit 1
+fi
+
+echo "✅ Config generated"
 echo ""
 
-# Show the proxy_pass line for debugging
-echo "Configured proxy_pass:"
-grep "proxy_pass" /etc/nginx/conf.d/default.conf || echo "⚠️  No proxy_pass found"
+# Show what we configured
+echo "Proxy configuration:"
+grep -A 2 "location /api" /etc/nginx/conf.d/default.conf | head -3
 echo ""
 
-# Verify nginx config syntax
+# Test nginx config
 echo "Testing nginx configuration..."
-if nginx -t; then
-    echo "✅ Nginx configuration is valid"
+if nginx -t 2>&1; then
+    echo "✅ Config is valid"
 else
-    echo "❌ Nginx configuration test failed!"
-    echo "Generated config:"
+    echo "❌ Config test failed! Here's the config:"
     cat /etc/nginx/conf.d/default.conf
     exit 1
 fi
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🚀 Starting NGINX..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🚀 STARTING NGINX"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Start nginx in foreground mode
 exec nginx -g "daemon off;"

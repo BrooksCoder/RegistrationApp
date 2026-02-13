@@ -205,11 +205,10 @@ pipeline {
                             --registry-password $ACR_PASS \
                             --ports 80 \
                             --dns-name-label "registration-frontend-prod" \
-                            --location eastus \
+                            --location centralindia \
                             --restart-policy OnFailure \
                             --environment-variables \
                                 "BACKEND_URL=http://$BACKEND_URL" \
-                                "BACKEND_API_URL=http://$BACKEND_URL" \
                                 "NODE_ENV=production"
                         
                         sleep 5
