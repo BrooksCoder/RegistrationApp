@@ -3,6 +3,10 @@
 # Build stage
 FROM node:18-alpine AS build
 
+ARG BACKEND_URL=http://localhost:5000
+ENV REACT_APP_BACKEND_URL=$BACKEND_URL
+ENV REACT_APP_API_BASE_URL=$BACKEND_URL
+
 WORKDIR /app
 
 # Copy package files
