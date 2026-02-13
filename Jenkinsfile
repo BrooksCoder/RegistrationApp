@@ -228,13 +228,13 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up...'
+            echo 'Deployment finished'
         }
         success {
-            echo '✓ Pipeline completed successfully!'
+            echo '✓✓✓ Pipeline completed successfully! ✓✓✓'
         }
         failure {
-            echo '✗ Pipeline failed!'
+            echo '✗ Pipeline had issues - check logs above'
         }
     }
 }
