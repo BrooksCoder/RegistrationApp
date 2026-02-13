@@ -198,17 +198,19 @@ pipeline {
                             --name registration-frontend-prod \
                             --image ${DOCKER_IMAGE_FRONTEND}:${BUILD_TAG} \
                             --cpu 0.5 \
-                            --memory 0.5 \
+                            --memory 1 \
                             --os-type Linux \
                             --registry-login-server ${DOCKER_REGISTRY} \
                             --registry-username $ACR_USER \
                             --registry-password $ACR_PASS \
                             --ports 80 \
                             --dns-name-label "registration-frontend-prod" \
-                            --location centralindia \
+                            --location eastus \
+                            --restart-policy OnFailure \
                             --environment-variables \
                                 "BACKEND_URL=http://$BACKEND_URL" \
-                                "BACKEND_API_URL=http://$BACKEND_URL"
+                                "BACKEND_API_URL=http://$BACKEND_URL" \
+                                "NODE_ENV=production"
                         
                         sleep 5
                         FRONTEND_URL=$(az container show --resource-group ${RESOURCE_GROUP} --name registration-frontend-prod --query ipAddress.fqdn -o tsv)
