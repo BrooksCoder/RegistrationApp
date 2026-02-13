@@ -4,37 +4,36 @@
 FROM node:18-alpine AS build
 
 ARG BACKEND_URL=http://localhost:5000
-ENV REACT_APP_BACKEND_URL=$BACKEND_URL
-ENV REACT_APP_API_BASE_URL=$BACKEND_URL
+ENV BACKEND_URL=$BACKEND_URL
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
 
-# Copy source
 COPY . .
-
-# Build Angular app
 RUN npm run build
 
-# Runtime stage - serve with nginx
+# Runtime stage
 FROM nginx:alpine
 
-# Copy built application from build stage
+RUN rm /etc/nginx/conf.d/default.conf
+
 COPY --from=build /app/dist/registration-app /usr/share/nginx/html
 
-# Copy nginx configuration template
-COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+# Simple nginx config for Angular routing
+COPY <<EOF /etc/nginx/conf.d/default.conf
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
 
-# Copy startup script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh && \
-    apk add --no-cache bash sed
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+}
+EOF
 
 EXPOSE 80
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
